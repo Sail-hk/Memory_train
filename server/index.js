@@ -54,6 +54,10 @@ function sanitizeUser(row) {
 }
 
 function ensureAdminAccount() {
+  if (process.env.ADMIN_USERNAME) {
+    const target = process.env.ADMIN_USERNAME.trim().toLowerCase();
+    db.prepare("UPDATE users SET role = 'admin' WHERE username = ?").run(target);
+  }
   const adminPass = process.env.ADMIN_PASSWORD;
   if (!adminPass) return;
   const existingAdmin = db.prepare("SELECT id FROM users WHERE role = 'admin' LIMIT 1").get();
