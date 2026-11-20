@@ -54,10 +54,11 @@ function sanitizeUser(row) {
 }
 
 function ensureAdminAccount() {
+  const adminPass = process.env.ADMIN_PASSWORD;
+  if (!adminPass) return;
   const existingAdmin = db.prepare("SELECT id FROM users WHERE role = 'admin' LIMIT 1").get();
   if (existingAdmin) return;
   const adminUser = (process.env.ADMIN_USERNAME || 'admin').trim().toLowerCase();
-  const adminPass = process.env.ADMIN_PASSWORD || 'admin123456';
   const existingByName = db.prepare('SELECT id FROM users WHERE username = ?').get(adminUser);
   if (existingByName) {
     db.prepare("UPDATE users SET role = 'admin' WHERE id = ?").run(existingByName.id);
@@ -113,12 +114,15 @@ app.post('/api/auth/register', (req, res) => {
     return res.status(409).json({ error: '该账号已存在，请直接登录或更换账号名' });
   }
 
+  const hasAdmin = db.prepare("SELECT id FROM users WHERE role = 'admin' LIMIT 1").get();
+  const assignedRole = hasAdmin ? 'user' : 'admin';
+
   const passwordHash = hashPassword(cleanPass);
   const result = db
     .prepare(
-      'INSERT INTO users (username, display_name, password_hash) VALUES (?, ?, ?)'
+      'INSERT INTO users (username, display_name, password_hash, role) VALUES (?, ?, ?, ?)'
     )
-    .run(cleanUser, cleanName, passwordHash);
+    .run(cleanUser, cleanName, passwordHash, assignedRole);
 
   const userId = Number(result.lastInsertRowid);
   ensureUserLevels(userId);
